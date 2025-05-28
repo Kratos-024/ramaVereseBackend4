@@ -5,29 +5,29 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import os
 
-secret_json_str = os.getenv("secretKey.json")  
+# secret_json_str = os.getenv("secretKey.json")  
 
-if not secret_json_str:
-    possible_paths = [
-        "/etc/secrets/secretKey.json",
-        "/etc/secrets/secretKey"  
-    ]
-    secret_json_str = None
-    for path in possible_paths:
-        if os.path.exists(path):
-            with open(path, "r") as f:
-                secret_json_str = f.read()
-            break
+# if not secret_json_str:
+#     possible_paths = [
+#         "/etc/secrets/secretKey.json",
+#         "/etc/secrets/secretKey"  
+#     ]
+#     secret_json_str = None
+#     for path in possible_paths:
+#         if os.path.exists(path):
+#             with open(path, "r") as f:
+#                 secret_json_str = f.read()
+#             break
 
-if not secret_json_str:
-    raise ValueError("Secret not found in env var or secret files.")
+# if not secret_json_str:
+#     raise ValueError("Secret not found in env var or secret files.")
 
-secret_data = json.loads(secret_json_str)
+# secret_data = json.loads(secret_json_str)
 
 class Drive:
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-        self.SERVICE_ACCOUNT_FILE = '/etc/secrets/secretKey.json'
+        self.SERVICE_ACCOUNT_FILE = 'secretKey.json'
         self.PARENT_FOLDER_ID = '12vJKghq9UFsBcstqztUGXk3kji2rs3zi'
 
     def authorize(self):

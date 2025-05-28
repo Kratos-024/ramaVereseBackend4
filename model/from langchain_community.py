@@ -39,13 +39,10 @@ else:
 
 print("Authorized", authorized)
 
-embedding_model = "sentence-transformers/all-MiniLM-L6-v2"  # Fixed model name
+embedding_model = "BAAI/bge-small-en"
 
 # Custom embedding class with better error handling
-from langchain_core.embeddings import Embeddings
-from typing import List
-
-class RobustHuggingFaceInferenceAPIEmbeddings(Embeddings):
+class RobustHuggingFaceInferenceAPIEmbeddings:
     def __init__(self, model_name, api_key, max_retries=3, retry_delay=1):
         self.model_name = model_name
         self.api_key = api_key
@@ -100,7 +97,7 @@ class RobustHuggingFaceInferenceAPIEmbeddings(Embeddings):
         
         raise Exception(f"Failed after {self.max_retries} attempts")
     
-    def embed_documents(self, texts: List[str]) -> List[List[float]]:
+    def embed_documents(self, texts):
         """Embed multiple documents"""
         try:
             payload = {"inputs": texts}
@@ -119,7 +116,7 @@ class RobustHuggingFaceInferenceAPIEmbeddings(Embeddings):
             print(f"Embedding error: {e}")
             raise
     
-    def embed_query(self, text: str) -> List[float]:
+    def embed_query(self, text):
         """Embed a single query"""
         return self.embed_documents([text])[0]
 
@@ -128,17 +125,15 @@ def get_local_embeddings():
     """Fallback to local embeddings if API fails"""
     try:
         from sentence_transformers import SentenceTransformer
-        from langchain_core.embeddings import Embeddings
-        from typing import List
         
-        class LocalEmbeddings(Embeddings):
+        class LocalEmbeddings:
             def __init__(self, model_name="all-MiniLM-L6-v2"):
                 self.model = SentenceTransformer(model_name)
             
-            def embed_documents(self, texts: List[str]) -> List[List[float]]:
+            def embed_documents(self, texts):
                 return self.model.encode(texts).tolist()
             
-            def embed_query(self, text: str) -> List[float]:
+            def embed_query(self, text):
                 return self.model.encode([text])[0].tolist()
         
         return LocalEmbeddings()

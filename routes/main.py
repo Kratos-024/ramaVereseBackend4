@@ -24,8 +24,7 @@ def read_root():
 def get_verse(request: VerseRequest):
     try:
         response = get_answer(request.verse) 
-        return {"Answer": response["answer"],
-                "Documents":response["sources"]}
+        return response
     except Exception as e:
         return {"error": str(e)}
     
