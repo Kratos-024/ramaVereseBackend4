@@ -7,7 +7,7 @@ from googleapiclient.http import MediaIoBaseDownload
 class Drive:
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-        self.SERVICE_ACCOUNT_FILE = '../secretKey.json'
+        self.SERVICE_ACCOUNT_FILE = 'secretKey.json'
         self.PARENT_FOLDER_ID = '12vJKghq9UFsBcstqztUGXk3kji2rs3zi'
 
     def authorize(self):

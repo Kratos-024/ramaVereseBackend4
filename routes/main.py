@@ -23,10 +23,9 @@ def read_root():
 @app.post("/get-verse")
 def get_verse(request: VerseRequest):
     try:
-        response = get_answer(request.verse)
-        print("answeransweransweransweranswer.verse", response)
+        response = get_answer(request.verse) 
         return {"Answer": response["answer"],
-                "Documents":response["related_docs"]}
+                "Documents":response["sources"]}
     except Exception as e:
         return {"error": str(e)}
     
