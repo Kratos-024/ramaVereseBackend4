@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: verse-qa-api
+    env: python
+    region: oregon
+    plan: starter # Free tier
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: python -m uvicorn routes.main:app --host=0.0.0.0 --port=$PORT --workers=1
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.7"
+      - key: TOKENIZERS_PARALLELISM
+        value: "false"
+      - key: TRANSFORMERS_OFFLINE
+        value: "1"
+      - key: HF_HOME
+        value: "/tmp/huggingface"
+      - key: ApiKey
+        sync: false # Set this manually in dashboard
+    healthCheckPath: /helloworld # Changed to your test endpoint
+    autoDeploy: true

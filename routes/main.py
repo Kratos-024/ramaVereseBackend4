@@ -27,8 +27,13 @@
 #         return response
 #     except Exception as e:
 #         return {"error": str(e)}
-    
-    
+
+
+
+
+
+
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -36,28 +41,18 @@ import os
 import uvicorn
 from contextlib import asynccontextmanager
 import asyncio
-import psutil
 import gc
 
 # Import your main QA functions
-from main import get_answer, health_check, initialize_system
+from main import get_answer, initialize_system
 
 # Request/Response models
-class QueryRequest(BaseModel):
+class VerseRequest(BaseModel):
     query: str
-    max_sources: int = 2
 
-class QueryResponse(BaseModel):
+class VerseResponse(BaseModel):
     answer: str
-    sources: list = []
     query: str = ""
-    error: str = None
-
-class HealthResponse(BaseModel):
-    status: str
-    qa_chain_loaded: bool = False
-    db_loaded: bool = False
-    memory_usage_mb: float = 0.0
     error: str = None
 
 # Global initialization flag
@@ -73,85 +68,59 @@ async def lifespan(app: FastAPI):
     try:
         if not _initialized:
             print("Initializing QA system...")
-            await asyncio.get_event_loop().run_in_executor(None, initialize_system)
-            _initialized = True
-            print("✅ QA system initialized successfully")
+            # Initialize in background to avoid blocking startup
+            asyncio.create_task(initialize_in_background())
         else:
             print("✅ QA system already initialized")
     except Exception as e:
-        print(f"❌ Failed to initialize QA system: {str(e)}")
-        # Don't raise here - let the app start but mark as unhealthy
+        print(f"❌ Failed to start initialization: {str(e)}")
     
     yield
     
     # Shutdown
     print("🛑 Shutting down FastAPI application...")
-    # Force garbage collection on shutdown
     gc.collect()
 
-# Create FastAPI app
+async def initialize_in_background():
+    """Initialize system in background"""
+    global _initialized
+    try:
+        await asyncio.get_event_loop().run_in_executor(None, initialize_system)
+        _initialized = True
+        print("✅ QA system initialized successfully")
+    except Exception as e:
+        print(f"❌ Background initialization failed: {str(e)}")
+
+# Create FastAPI app (minimal)
 app = FastAPI(
-    title="LangChain QA System",
-    description="A Question-Answering system using LangChain and FAISS",
+    title="Verse QA API",
+    description="Simple API for verse queries",
     version="1.0.0",
     lifespan=lifespan
 )
 
-# Add CORS middleware
+# Minimal CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Configure appropriately for production
-    allow_credentials=True,
-    allow_methods=["*"],
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
     allow_headers=["*"],
 )
 
-@app.get("/")
-async def root():
-    """Root endpoint"""
-    return {
-        "message": "LangChain QA System API",
-        "version": "1.0.0",
-        "endpoints": {
-            "health": "/health",
-            "query": "/query (POST)",
-            "docs": "/docs"
-        }
-    }
+@app.get("/helloworld")
+async def hello_world():
+    """Simple test endpoint"""
+    return {"message": "Hello World! API is running."}
 
-@app.get("/health", response_model=HealthResponse)
-async def get_health():
-    """Health check endpoint"""
-    try:
-        # Get memory usage
-        process = psutil.Process()
-        memory_mb = process.memory_info().rss / 1024 / 1024
-        
-        # Get health status
-        health = health_check()
-        
-        return HealthResponse(
-            status=health.get("status", "unknown"),
-            qa_chain_loaded=health.get("qa_chain_loaded", False),
-            db_loaded=health.get("db_loaded", False),
-            memory_usage_mb=round(memory_mb, 2),
-            error=health.get("error")
-        )
-    except Exception as e:
-        return HealthResponse(
-            status="error",
-            error=str(e)
-        )
-
-@app.post("/query", response_model=QueryResponse)
-async def process_query(request: QueryRequest):
-    """Process a query and return answer with sources"""
+@app.post("/get-verse", response_model=VerseResponse)
+async def get_verse(request: VerseRequest):
+    """Get verse answer based on query"""
     global _initialized
     
     if not _initialized:
         raise HTTPException(
             status_code=503, 
-            detail="QA system not initialized. Please try again later."
+            detail="System still initializing. Please try again in a moment."
         )
     
     if not request.query.strip():
@@ -161,7 +130,7 @@ async def process_query(request: QueryRequest):
         )
     
     try:
-        # Process query in thread pool to avoid blocking
+        # Process query
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(None, get_answer, request.query)
         
@@ -171,12 +140,8 @@ async def process_query(request: QueryRequest):
                 detail=f"Query processing failed: {result['error']}"
             )
         
-        # Limit sources based on request
-        sources = result.get("sources", [])[:request.max_sources]
-        
-        return QueryResponse(
+        return VerseResponse(
             answer=result.get("answer", "No answer generated"),
-            sources=sources,
             query=result.get("query", request.query)
         )
         
@@ -188,59 +153,26 @@ async def process_query(request: QueryRequest):
             detail=f"Unexpected error: {str(e)}"
         )
 
-@app.get("/memory")
-async def get_memory_stats():
-    """Get memory usage statistics"""
-    try:
-        process = psutil.Process()
-        memory_info = process.memory_info()
-        
-        return {
-            "memory_usage_mb": round(memory_info.rss / 1024 / 1024, 2),
-            "memory_percent": round(process.memory_percent(), 2),
-            "available_memory_mb": round(psutil.virtual_memory().available / 1024 / 1024, 2)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+# Minimal error handler
+@app.exception_handler(404)
+async def not_found_handler(request, exc):
+    return {"error": "Endpoint not found"}
 
-@app.post("/gc")
-async def force_garbage_collection():
-    """Force garbage collection (for debugging)"""
-    try:
-        collected = gc.collect()
-        process = psutil.Process()
-        memory_mb = process.memory_info().rss / 1024 / 1024
-        
-        return {
-            "objects_collected": collected,
-            "memory_usage_mb": round(memory_mb, 2),
-            "message": "Garbage collection completed"
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-# Error handlers
-@app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    """Global exception handler"""
-    return {
-        "error": "Internal server error",
-        "detail": str(exc),
-        "path": str(request.url)
-    }
+@app.exception_handler(500)
+async def server_error_handler(request, exc):
+    return {"error": "Internal server error"}
 
 if __name__ == "__main__":
-    # Get port from environment or default to 8000
     port = int(os.getenv("PORT", 8000))
     host = os.getenv("HOST", "0.0.0.0")
     
     print(f"Starting server on {host}:{port}")
     
     uvicorn.run(
-        "main:app",  # Make sure this matches your file name
+        app,  # Direct app reference
         host=host,
         port=port,
-        reload=False,  # Disable reload in production
-        workers=1,  # Single worker to save memory
-        log_level="info"
+        reload=False,
+        workers=1,
+        log_level="warning"  # Reduce logging
     )
