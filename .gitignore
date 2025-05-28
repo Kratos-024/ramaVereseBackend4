@@ -1,5 +1,5 @@
 .env
 .history
-.venv
+venv
 data/vector_embeds.npy
 secretKey.json
