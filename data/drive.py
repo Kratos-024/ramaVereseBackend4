@@ -4,10 +4,23 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 import os
+secret_json_str = os.getenv("secretKey.json")  
 
-secret_json_str = os.getenv("secretKey.json")
 if not secret_json_str:
-    raise ValueError("Environment variable 'secretKey.json' not set.")
+    possible_paths = [
+        "/etc/secrets/secretKey.json",
+        "/etc/secrets/secretKey"  
+    ]
+    secret_json_str = None
+    for path in possible_paths:
+        if os.path.exists(path):
+            with open(path, "r") as f:
+                secret_json_str = f.read()
+            break
+
+if not secret_json_str:
+    raise ValueError("Secret not found in env var or secret files.")
+
 secret_data = json.loads(secret_json_str)
 
 class Drive:
