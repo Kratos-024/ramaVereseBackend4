@@ -9,6 +9,7 @@ from data.drive import Drive
 import traceback
 import requests
 import time
+from langchain.embeddings import HuggingFaceEmbeddings
 
 # Load environment variables
 load_dotenv()
@@ -41,140 +42,21 @@ print("Authorized", authorized)
 
 embedding_model = "BAAI/bge-small-en"
 
-# Custom embedding class with better error handling
-class RobustHuggingFaceInferenceAPIEmbeddings:
-    def __init__(self, model_name, api_key, max_retries=3, retry_delay=1):
-        self.model_name = model_name
-        self.api_key = api_key
-        self.max_retries = max_retries
-        self.retry_delay = retry_delay
-        self.api_url = f"https://api-inference.huggingface.co/models/{model_name}"
-        self.headers = {"Authorization": f"Bearer {api_key}"}
-    
-    def _make_request(self, payload):
-        """Make API request with retry logic and better error handling"""
-        for attempt in range(self.max_retries):
-            try:
-                response = requests.post(
-                    self.api_url, 
-                    headers=self.headers, 
-                    json=payload,
-                    timeout=30
-                )
-                
-                # Check if response is successful
-                if response.status_code == 200:
-                    try:
-                        return response.json()
-                    except requests.exceptions.JSONDecodeError:
-                        print(f"Invalid JSON response: {response.text}")
-                        if attempt < self.max_retries - 1:
-                            print(f"Retrying in {self.retry_delay} seconds...")
-                            time.sleep(self.retry_delay)
-                            continue
-                        else:
-                            raise Exception(f"Failed to get valid JSON after {self.max_retries} attempts")
-                
-                elif response.status_code == 503:
-                    print(f"Model loading, attempt {attempt + 1}/{self.max_retries}")
-                    if attempt < self.max_retries - 1:
-                        time.sleep(self.retry_delay * (attempt + 1))  # Exponential backoff
-                        continue
-                    else:
-                        raise Exception("Model failed to load after multiple attempts")
-                
-                else:
-                    print(f"API Error {response.status_code}: {response.text}")
-                    raise Exception(f"API request failed with status {response.status_code}")
-                    
-            except requests.exceptions.RequestException as e:
-                print(f"Request failed: {e}")
-                if attempt < self.max_retries - 1:
-                    time.sleep(self.retry_delay)
-                    continue
-                else:
-                    raise
-        
-        raise Exception(f"Failed after {self.max_retries} attempts")
-    
-    def embed_documents(self, texts):
-        """Embed multiple documents"""
-        try:
-            payload = {"inputs": texts}
-            embeddings = self._make_request(payload)
-            
-            # Handle different response formats
-            if isinstance(embeddings, list) and len(embeddings) > 0:
-                if isinstance(embeddings[0], list):
-                    return embeddings
-                elif isinstance(embeddings[0], dict) and 'embedding' in embeddings[0]:
-                    return [item['embedding'] for item in embeddings]
-            
-            raise Exception(f"Unexpected embedding format: {type(embeddings)}")
-            
-        except Exception as e:
-            print(f"Embedding error: {e}")
-            raise
-    
-    def embed_query(self, text):
-        """Embed a single query"""
-        return self.embed_documents([text])[0]
 
-# Alternative: Use local embeddings as fallback
-def get_local_embeddings():
-    """Fallback to local embeddings if API fails"""
-    try:
-        from sentence_transformers import SentenceTransformer
-        
-        class LocalEmbeddings:
-            def __init__(self, model_name="all-MiniLM-L6-v2"):
-                self.model = SentenceTransformer(model_name)
-            
-            def embed_documents(self, texts):
-                return self.model.encode(texts).tolist()
-            
-            def embed_query(self, text):
-                return self.model.encode([text])[0].tolist()
-        
-        return LocalEmbeddings()
-    except ImportError:
-        print("sentence-transformers not installed. Install with: pip install sentence-transformers")
-        return None
 
-# Try to create embeddings model with fallback
-try:
-    print("Trying Hugging Face API embeddings...")
-    embeddings_model = RobustHuggingFaceInferenceAPIEmbeddings(
-        model_name=embedding_model,
-        api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
-        max_retries=3,
-        retry_delay=2
+
+print("Trying Hugging Face API embeddings...")
+embeddings_model = HuggingFaceEmbeddings(
+    model_name=embedding_model,
+      
     )
     
-    # Test the embeddings
-    test_embedding = embeddings_model.embed_query("test")
-    print(f"✅ Hugging Face API embeddings working! Embedding dimension: {len(test_embedding)}")
-    
-except Exception as e:
-    print(f"❌ Hugging Face API embeddings failed: {e}")
-    print("Trying local embeddings as fallback...")
-    
-    embeddings_model = get_local_embeddings()
-    if embeddings_model is None:
-        print("❌ No embedding model available. Please check your API key or install sentence-transformers")
-        exit(1)
-    else:
-        print("✅ Using local embeddings")
 
-# Load FAISS index
-try:
-    db = FAISS.load_local(".", embeddings_model, allow_dangerous_deserialization=True)
-    print("✅ FAISS index loaded successfully")
-except Exception as e:
-    print(f"❌ Failed to load FAISS index: {e}")
-    exit(1)
 
-# Define LLM with updated import
+
+db = FAISS.load_local(".", embeddings_model, allow_dangerous_deserialization=True)
+print("✅ FAISS index loaded successfully")
+
 modelName = "HuggingFaceH4/zephyr-7b-beta"
 
 llm = HuggingFaceEndpoint(
@@ -243,10 +125,3 @@ def get_answer(query: str):
         print(f"Error occurred: {str(e)}")
         traceback.print_exc()
         return {"error": str(e)}
-
-if __name__ == "__main__":
-    print("\n" + "="*50)
-    print("Testing RAG System")
-    print("="*50)
-    result = get_answer("Rama was the son of king dasharatha")
-    print(f"\nResult: {result}")
