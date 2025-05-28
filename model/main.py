@@ -17,26 +17,31 @@ drive = Drive()
 authorized = drive.authorize()
 
 faissFileid = "1CcT7gZMQrkZB6S4WalAFEb_rIZMJOHXx"
-# pklFileid = "1WJpJIvpERopl9ANDuq-a-Vi6PfHrS5SB"
+pklFileid = "1WJpJIvpERopl9ANDuq-a-Vi6PfHrS5SB"
 
 faiss_filename = "index.faiss"
-# pkl_filename = "index.pkl"
+pkl_filename = "index.pkl"
 
 if not os.path.isfile(faiss_filename):
     drive.download_file(authorized, faissFileid, faiss_filename)
 else:
     print(f"{faiss_filename} already exists, skipping download.")
 
-# if not os.path.isfile(pkl_filename):
-#     drive.download_file(authorized, pklFileid, pkl_filename)
-# else:
-#     print(f"{pkl_filename} already exists, skipping download.")
+if not os.path.isfile(pkl_filename):
+    drive.download_file(authorized, pklFileid, pkl_filename)
+else:
+    print(f"{pkl_filename} already exists, skipping download.")
 
 print("Authorized", authorized)
 
 embedding_model = "BAAI/bge-small-en"
 
-embeddings_model = HuggingFaceInferenceAPIEmbeddings(model_name=embedding_model)
+
+print(os.getenv("HUGGINGFACEHUB_API_TOKEN") )
+embeddings_model = HuggingFaceInferenceAPIEmbeddings(
+    model_name=embedding_model,
+    api_key=os.getenv("HUGGINGFACEHUB_API_TOKEN") 
+)
 
 db = FAISS.load_local(".", embeddings_model, allow_dangerous_deserialization=True)
 modelName = "HuggingFaceH4/zephyr-7b-beta"
