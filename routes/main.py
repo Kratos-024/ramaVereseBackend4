@@ -40,7 +40,7 @@ import psutil
 import gc
 
 # Import your main QA functions
-from main import get_answer, health_check, initialize_system
+from model.main import get_answer, health_check, initialize_system
 
 # Request/Response models
 class QueryRequest(BaseModel):
