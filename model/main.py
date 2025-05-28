@@ -1,5 +1,6 @@
 from langchain_community.vectorstores import FAISS
-from langchain_huggingface import HuggingFaceEmbeddings, HuggingFaceEndpoint
+from langchain.embeddings import HuggingFaceInferenceAPIEmbeddings
+from langchain_community.llms import HuggingFaceEndpoint  # ✅ Correct import for LLM
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from dotenv import load_dotenv
@@ -16,29 +17,30 @@ drive = Drive()
 authorized = drive.authorize()
 
 faissFileid = "1CcT7gZMQrkZB6S4WalAFEb_rIZMJOHXx"
-pklFileid = "1WJpJIvpERopl9ANDuq-a-Vi6PfHrS5SB"
+# pklFileid = "1WJpJIvpERopl9ANDuq-a-Vi6PfHrS5SB"
 
 faiss_filename = "index.faiss"
-pkl_filename = "index.pkl"
+# pkl_filename = "index.pkl"
 
 if not os.path.isfile(faiss_filename):
     drive.download_file(authorized, faissFileid, faiss_filename)
 else:
     print(f"{faiss_filename} already exists, skipping download.")
 
-if not os.path.isfile(pkl_filename):
-    drive.download_file(authorized, pklFileid, pkl_filename)
-else:
-    print(f"{pkl_filename} already exists, skipping download.")
+# if not os.path.isfile(pkl_filename):
+#     drive.download_file(authorized, pklFileid, pkl_filename)
+# else:
+#     print(f"{pkl_filename} already exists, skipping download.")
 
 print("Authorized", authorized)
 
 embedding_model = "BAAI/bge-small-en"
 
-embeddings_model = HuggingFaceEmbeddings(model_name=embedding_model)
+embeddings_model = HuggingFaceInferenceAPIEmbeddings(model_name=embedding_model)
 
 db = FAISS.load_local(".", embeddings_model, allow_dangerous_deserialization=True)
 modelName = "HuggingFaceH4/zephyr-7b-beta"
+
 
 
 
