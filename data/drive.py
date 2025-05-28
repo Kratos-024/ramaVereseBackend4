@@ -3,11 +3,15 @@ import json
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
-
+import os
+secret_json_str = os.getenv("secretKey.json")
+if secret_json_str:
+    print(secret_json_str)
+    secret_data = json.loads(secret_json_str)
 class Drive:
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/drive.readonly']
-        self.SERVICE_ACCOUNT_FILE = 'secretKey.json'
+        self.SERVICE_ACCOUNT_FILE = secret_data
         self.PARENT_FOLDER_ID = '12vJKghq9UFsBcstqztUGXk3kji2rs3zi'
 
     def authorize(self):
