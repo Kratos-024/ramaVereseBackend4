@@ -43,8 +43,8 @@ from contextlib import asynccontextmanager
 import asyncio
 import gc
 
-# Import your main QA functions
-from main import get_answer, initialize_system
+
+from model.main import get_answer, initialize_system
 
 # Request/Response models
 class VerseRequest(BaseModel):
